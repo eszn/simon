@@ -1,0 +1,165 @@
+<html>
+  <head>
+    <title>Simon Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url("https://unpkg.com/@catppuccin/palette/css/catppuccin.css");
+      body {
+        color: var(--ctp-mocha-text);
+        background: var(--ctp-mocha-mantle);
+        margin: 0;
+        height: 100vh;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div class="w-full h-full flex items-center justify-center">
+    <div class="grid grid-cols-2 w-1/2 h-1/2 rounded-xl overflow-hidden cursor-default" id="container">
+      <div class="w-full h-full  bg-green-900" id="green"></div>
+      <div class="w-full h-full bg-red-900" id="red"></div>
+      <div class="w-full h-full bg-yellow-900" id="yellow"></div>
+      <div class="w-full h-full bg-blue-900" id="blue"></div>
+    </div>
+</div>
+    <script>
+      let allowInput = false;
+      let sequence = [];
+      let playerSequence = [];
+      let level = 0;
+      let audioContext;
+
+      const SOUNDS = {
+        green: 329,
+        red: 277,
+        blue: 220,
+        yellow: 164,
+        gameover: 42,
+      };
+
+      function initAudio() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)();
+        }
+        if (audioContext.state === "suspended") {
+          audioContext.resume();
+        }
+      }
+
+      function playTone(freq, duration = 500) {
+        if (!audioContext) return;
+
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = "sawtooth";
+        oscillator.frequency.value = freq;
+
+        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+        oscillator.start();
+        gainNode.gain.exponentialRampToValueAtTime(
+          0.01,
+          audioContext.currentTime + duration / 1000
+        );
+        oscillator.stop(audioContext.currentTime + duration / 1000);
+      }
+
+      function setInputAllowed(allowed) {
+        allowInput = allowed;
+        document
+          .getElementById("container")
+          .classList.toggle("cursor-pointer", allowed);
+        document
+          .getElementById("container")
+          .classList.toggle("cursor-default", !allowed);
+      }
+
+      function activateColor(color, duration = 500) {
+        const element = document.getElementById(color);
+        element.classList.replace(`bg-${color}-900`, `bg-${color}-500`);
+        playTone(SOUNDS[color], duration);
+        setTimeout(() => {
+          element.classList.replace(`bg-${color}-500`, `bg-${color}-900`);
+        }, duration);
+      }
+
+      function nextSequence() {
+        sequence.push(
+          ["green", "red", "yellow", "blue"][Math.floor(Math.random() * 4)]
+        );
+        setInputAllowed(false);
+        playSequence();
+      }
+
+      function playSequence() {
+        let i = 0;
+        const playNext = () => {
+          if (i >= sequence.length) {
+            setInputAllowed(true);
+            return;
+          }
+
+          const color = sequence[i];
+          activateColor(color);
+          i++;
+          setTimeout(playNext, 800);
+        };
+        playNext();
+      }
+
+      function handlePlayerInput(color) {
+        if (!allowInput) return;
+
+        activateColor(color, 300);
+        playerSequence.push(color);
+
+        if (
+          playerSequence[playerSequence.length - 1] !==
+          sequence[playerSequence.length - 1]
+        ) {
+          playTone(SOUNDS["gameover"], 1500);
+          alert(`Game Over! Score: ${level}`);
+
+          resetGame();
+          return;
+        }
+
+        if (playerSequence.length === sequence.length) {
+          level++;
+          playerSequence = [];
+          setInputAllowed(false);
+          setTimeout(nextSequence, 1500);
+        }
+      }
+
+      function resetGame() {
+        sequence = [];
+        playerSequence = [];
+        level = 0;
+        setInputAllowed(false);
+        setTimeout(nextSequence, 1000);
+      }
+
+      document.getElementById("container").addEventListener("click", (e) => {
+        if (allowInput && e.target.id in SOUNDS) {
+          handlePlayerInput(e.target.id);
+        }
+      });
+
+      document.body.addEventListener(
+        "click",
+        () => {
+          initAudio(); 
+          if (sequence.length === 0) {
+            nextSequence(); 
+          }
+        },
+        { once: true }
+      );
+    </script>
+  </body>
+</html>
